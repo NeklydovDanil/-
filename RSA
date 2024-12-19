@@ -1,68 +1,62 @@
+/*
+Программа демонстрирует действие Шифра RSA.
+Для тестирования необходимо ввести текст на латинице (тестовый пример - Hello World)
+Далее проходит Шифрование и Дешифрование текста.
+Запуск файла происходит путём копирования текста и запуск в любой удобной среде разработки(язык с++), также возможна проверка в оналйн компиляторе, но при этом варианте могут быть неточности из-за некорректого чтения и отображения текста через консоль.
+*/
+
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <ctime>
-#include <sstream>
+#include <string>
 #include <algorithm>
-#include <cstdlib>
-#include <cassert>
 
 using namespace std;
 
 class RSACipher {
 private:
-    size_t bitLength = 1024; // Длина ключа
-    unsigned long e = 65537; // Часто используется значение 65537 для e
-    unsigned long publicKey;
-    unsigned long privateKey;
-    unsigned long modulus;
+    int publicKey;
+    int privateKey;
+    int n;
 
-    // Генерация ключей
-    void generateKeys() {
-        srand(static_cast<unsigned int>(time(0))); // Инициализация генератора случайных чисел
-        unsigned long p = generateLargePrime(bitLength / 2);
-        unsigned long q = generateLargePrime(bitLength / 2);
-
-        modulus = p * q; // n = p * q
-        unsigned long phi = (p - 1) * (q - 1); // phi(n) = (p - 1) * (q - 1)
-
-        publicKey = e; // e
-        privateKey = modInverse(e, phi); // d = e^-1 mod phi(n)
-    }
-
-    // Генерация большого простого числа
-    unsigned long generateLargePrime(size_t numBits) {
-        unsigned long prime = 0;
-        bool isPrime = false;
-
-        while (!isPrime) {
-            prime = rand() % ((1UL << (numBits - 1)) - 1) + (1UL << (numBits - 1)); // Генерация случайного числа с нужным количеством бит
-            isPrime = isPrimeNumber(prime);
+    // Функция для проверки простоты числа
+    bool isPrime(int num) {
+        if (num <= 1) return false;
+        for (int i = 2; i <= sqrt(num); ++i) {
+            if (num % i == 0) return false;
         }
-
-        return prime;
-    }
-
-    // Проверка на простое число
-    bool isPrimeNumber(unsigned long n) {
-        if (n <= 1) return false;
-        if (n <= 3) return true;
-        if (n % 2 == 0 || n % 3 == 0) return false;
-
-        for (unsigned long i = 5; i * i <= n; i += 6) {
-            if (n % i == 0 || n % (i + 2) == 0) return false;
-        }
-
         return true;
     }
 
-    // Вспомогательная функция для вычисления обратного элемента (modInverse)
-    unsigned long modInverse(unsigned long a, unsigned long m) {
-        a = a % m;
-        for (unsigned long x = 1; x < m; ++x) {
-            if ((a * x) % m == 1) return x;
+    // Генерация публичного и приватного ключей
+    void generateKeys() {
+        int p = 97; // Пример первого простого числа
+        int q = 89; // Пример второго простого числа
+        n = p * q;
+
+        int totient = (p - 1) * (q - 1);
+
+        // Выбор открытого ключа 'e'
+        for (int i = 2; i < totient; ++i) {
+            if (isPrime(i) && gcd(i, totient) == 1) {
+                publicKey = i;
+                break;
+            }
         }
-        return 1;
+
+        // Вычисление закрытого ключа 'd'
+        for (int i = 2; i < totient; ++i) {
+            if ((publicKey * i) % totient == 1) {
+                privateKey = i;
+                break;
+            }
+        }
+    }
+
+    // Поиск наибольшего общего делителя
+    int gcd(int a, int b) {
+        if (b == 0) return a;
+        return gcd(b, a % b);
     }
 
 public:
@@ -70,93 +64,53 @@ public:
         generateKeys();
     }
 
-    // Шифрование
-    string encrypt(const string& message) {
-        vector<unsigned char> messageBytes(message.begin(), message.end());
-        unsigned long messageInt = bytesToInt(messageBytes);
-        unsigned long encrypted = modExp(messageInt, publicKey, modulus); // ciphertext = plaintext^e mod n
-        stringstream ss;
-        ss << hex << encrypted;
-        return ss.str();
-    }
-
-    // Дешифрование
-    string decrypt(const string& encryptedMessage) {
-        unsigned long encryptedInt;
-        stringstream ss;
-        ss << hex << encryptedMessage;
-        ss >> encryptedInt;
-
-        unsigned long decrypted = modExp(encryptedInt, privateKey, modulus); // plaintext = ciphertext^d mod n
-        string decryptedMessage = intToBytes(decrypted);
-        return decryptedMessage;
-    }
-
-    // Получение публичного ключа
-    unsigned long getPublicKey() {
-        return publicKey;
-    }
-
-    // Получение приватного ключа
-    unsigned long getPrivateKey() {
-        return privateKey;
-    }
-
-    // Получение модуля
-    unsigned long getModulus() {
-        return modulus;
-    }
-
-private:
-    // Перевод в int
-    unsigned long bytesToInt(const vector<unsigned char>& bytes) {
-        unsigned long value = 0;
-        for (size_t i = 0; i < bytes.size(); ++i) {
-            value = (value << 8) | bytes[i];
+    // Шифрование сообщения
+    vector<int> encrypt(const string &message) {
+        vector<int> encrypted;
+        for (char c : message) {
+            int m = static_cast<int>(c);
+            int cipher = 1;
+            for (int i = 0; i < publicKey; ++i) {
+                cipher = (cipher * m) % n;
+            }
+            encrypted.push_back(cipher);
         }
-        return value;
+        return encrypted;
     }
 
-    // Перевод в массив байт
-    string intToBytes(unsigned long value) {
-        string result;
-        while (value) {
-            result.push_back(static_cast<char>(value & 0xFF));
-            value >>= 8;
+    // Дешифрование сообщения
+    string decrypt(const vector<int> &encryptedMessage) {
+        string decrypted;
+        for (int cipher : encryptedMessage) {
+            int message = 1;
+            for (int i = 0; i < privateKey; ++i) {
+                message = (message * cipher) % n;
+            }
+            decrypted += static_cast<char>(message);
         }
-        reverse(result.begin(), result.end());
-        return result;
-    }
-
-    // Возведение в степень по модулю
-    unsigned long modExp(unsigned long base, unsigned long exp, unsigned long mod) {
-        unsigned long result = 1;
-        base = base % mod;
-        while (exp > 0) {
-            if (exp % 2 == 1) result = (result * base) % mod;
-            exp = exp >> 1;
-            base = (base * base) % mod;
-        }
-        return result;
+        return decrypted;
     }
 };
 
 int main() {
-    RSACipher rsa;
-
-    string publicKey = to_string(rsa.getPublicKey());
-    string privateKey = to_string(rsa.getPrivateKey());
-    string modulus = to_string(rsa.getModulus());
+    RSACipher rsaCipher;
 
     string message;
-    cout << "Введите сообщение: ";
+    cout << "Введите текст: ";
     getline(cin, message);
 
-    string encryptedMessage = rsa.encrypt(message);
-    cout << "Зашифрованное сообщение: " << encryptedMessage << endl;
+    // Шифрование
+    vector<int> encryptedMessage = rsaCipher.encrypt(message);
+    cout << "Зашифрованное сообщение: ";
+    for (int cipher : encryptedMessage) {
+        cout << cipher;
+    }
+    cout << endl;
 
-    string decryptedMessage = rsa.decrypt(encryptedMessage);
+    // Дешифрование
+    string decryptedMessage = rsaCipher.decrypt(encryptedMessage);
     cout << "Расшифрованное сообщение: " << decryptedMessage << endl;
 
     return 0;
 }
+
