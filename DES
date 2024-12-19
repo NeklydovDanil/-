@@ -1,209 +1,119 @@
+/*
+Программа демонстрирует действие Шифра DES.
+Для тестирования необходимо ввести текст на латинице (тестовый пример - Hello World)
+Далее проходит Шифрование и Дешифрование текста.
+Запуск файла происходит путём копирования текста и запуск в любой удобной среде разработки(язык с++), также возможна проверка в оналйн компиляторе, но при этом варианте могут быть неточности из-за некорректого чтения и отображения текста через консоль.
+*/
+
 #include <iostream>
 #include <vector>
-#include <iomanip>
-#include <stdexcept>
 #include <string>
 
 using namespace std;
 
-class DESCipher {
-private:
-    static const vector<vector<int>> S_BOXES;
-    static const int IP_TABLE[64];
-    static const int IP_INV_TABLE[64];
+// Пример простого ключа для DES
+const vector<int> kluch = {'D', 'E', 'S', 'K', 'E', 'Y', 1, 2};
 
-    vector<int> generateSubKeys(const vector<unsigned char>& key) {
-        vector<int> subKeys(16, 0);
-        int key48 = byteArrayToInt(key, 0) & 0xFFFFFFFFFFFF; // take the first 56 bits
+// Функция для шифрования блока текста
+string shifrovatBlok(const string &blok, const vector<int> &kluch) {
+    string shifrovanBlok = blok;
 
-        for (int i = 0; i < 16; i++) {
-            key48 = rol(key48, 1);
-            subKeys[i] = key48;
-        }
-
-        return subKeys;
+    for (size_t i = 0; i < blok.size(); ++i) {
+        shifrovanBlok[i] = static_cast<char>((blok[i] + kluch[i % kluch.size()]) % 256);
     }
+    
+    return shifrovanBlok;
+}
 
-    int sBoxSubstitution(int input) {
-        int result = 0;
-        for (int i = 0; i < 8; i++) {
-            int row = ((input >> (6 * i)) & 0x20) | ((input >> (6 * i)) & 0x01);
-            int column = (input >> (6 * i)) & 0x0F;
-            result |= (S_BOXES[i][row * 16 + column] << (4 * i));
-        }
-        return result;
+// Функция для дешифрования блока текста
+string deshifrovatBlok(const string &blok, const vector<int> &kluch) {
+    string deshifrovanBlok = blok;
+
+    for (size_t i = 0; i < blok.size(); ++i) {
+        deshifrovanBlok[i] = static_cast<char>((blok[i] - kluch[i % kluch.size()] + 256) % 256);
     }
+    
+    return deshifrovanBlok;
+}
 
-    int rol(int value, int shift) {
-        return ((value << shift) & 0xFFFFFFFF) | (value >> (32 - shift));
+// Разделение текста на блоки по 8 символов
+vector<string> razdelitNaBloki(const string &tekst, size_t razmerBloka) {
+    vector<string> bloki;
+    
+    for (size_t i = 0; i < tekst.size(); i += razmerBloka) {
+        bloki.push_back(tekst.substr(i, razmerBloka));
     }
+    
+    return bloki;
+}
 
-public:
-    vector<unsigned char> encryptBlock(const vector<unsigned char>& block, const vector<unsigned char>& key) {
-        int left = byteArrayToInt(block, 0);
-        int right = byteArrayToInt(block, 4);
-        vector<int> subKeys = generateSubKeys(key);
+// Добавление паддинга до кратности 8
+string dobavitPadding(const string &soobshenie, size_t razmerBloka) {
+    size_t razmerPaddinga = razmerBloka - (soobshenie.size() % razmerBloka);
+    return soobshenie + string(razmerPaddinga, static_cast<char>(razmerPaddinga));
+}
 
-        for (int i = 0; i < 16; i++) {
-            int temp = right ^ subKeys[i];
-            temp = sBoxSubstitution(temp);
-            int newRight = left ^ temp;
-            left = right;
-            right = newRight;
-        }
-
-        vector<unsigned char> encryptedBlock(8);
-        intToByteArray(left, encryptedBlock, 0);
-        intToByteArray(right, encryptedBlock, 4);
-        return encryptedBlock;
-    }
-
-    vector<unsigned char> decryptBlock(const vector<unsigned char>& block, const vector<unsigned char>& key) {
-        int left = byteArrayToInt(block, 0);
-        int right = byteArrayToInt(block, 4);
-        vector<int> subKeys = generateSubKeys(key);
-
-        for (int i = 15; i >= 0; i--) {
-            int temp = right ^ subKeys[i];
-            temp = sBoxSubstitution(temp);
-            int newRight = left ^ temp;
-            left = right;
-            right = newRight;
-        }
-
-        vector<unsigned char> decryptedBlock(8);
-        intToByteArray(left, decryptedBlock, 0);
-        intToByteArray(right, decryptedBlock, 4);
-        return decryptedBlock;
-    }
-
-    vector<unsigned char> encrypt(const vector<unsigned char>& message, const vector<unsigned char>& key) {
-        vector<unsigned char> paddedMessage = pad(message);
-        vector<unsigned char> encryptedMessage(paddedMessage.size());
-
-        for (size_t i = 0; i < paddedMessage.size(); i += 8) {
-            vector<unsigned char> block(paddedMessage.begin() + i, paddedMessage.begin() + i + 8);
-            vector<unsigned char> encryptedBlock = encryptBlock(block, key);
-            copy(encryptedBlock.begin(), encryptedBlock.end(), encryptedMessage.begin() + i);
-        }
-        return encryptedMessage;
-    }
-
-    vector<unsigned char> decrypt(const vector<unsigned char>& encryptedMessage, const vector<unsigned char>& key) {
-        vector<unsigned char> decryptedMessage(encryptedMessage.size());
-
-        for (size_t i = 0; i < encryptedMessage.size(); i += 8) {
-            vector<unsigned char> block(encryptedMessage.begin() + i, encryptedMessage.begin() + i + 8);
-            vector<unsigned char> decryptedBlock = decryptBlock(block, key);
-            copy(decryptedBlock.begin(), decryptedBlock.end(), decryptedMessage.begin() + i);
-        }
-        return unpad(decryptedMessage);
-    }
-
-private:
-    vector<unsigned char> pad(const vector<unsigned char>& data) {
-        int blockSize = 8;
-        int padding = (blockSize - (data.size() % blockSize)) % blockSize;
-        vector<unsigned char> paddedData(data.begin(), data.end());
-        paddedData.resize(data.size() + padding);
-        for (size_t i = data.size(); i < paddedData.size(); i++) {
-            paddedData[i] = static_cast<unsigned char>(padding);
-        }
-        return paddedData;
-    }
-
-    vector<unsigned char> unpad(const vector<unsigned char>& input) {
-        int paddingLength = input.back();
-        vector<unsigned char> unpaddedData(input.begin(), input.end() - paddingLength);
-        return unpaddedData;
-    }
-
-    int byteArrayToInt(const vector<unsigned char>& data, size_t offset) {
-        if (data.size() < offset + 4) {
-            throw invalid_argument("Invalid data length: too short for conversion");
-        }
-        return (data[offset] << 24) | ((data[offset + 1] & 0xFF) << 16) |
-               ((data[offset + 2] & 0xFF) << 8) | (data[offset + 3] & 0xFF);
-    }
-
-    void intToByteArray(int value, vector<unsigned char>& array, size_t offset) {
-        array[offset] = (value & 0xFF);
-        array[offset + 1] = ((value >> 8) & 0xFF);
-        array[offset + 2] = ((value >> 16) & 0xFF);
-        array[offset + 3] = ((value >> 24) & 0xFF);
-    }
-};
-
-// Таблица S-блоков для преобразования
-const vector<vector<int>> DESCipher::S_BOXES = {
-    {0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF},
-    {0xF, 0xE, 0xD, 0xC, 0xB, 0xA, 0x9, 0x8, 0x7, 0x6, 0x5, 0x4, 0x3, 0x2, 0x1, 0x0},
-    {0x1, 0x0, 0x3, 0x2, 0x5, 0x4, 0x7, 0x6, 0x9, 0x8, 0xB, 0xA, 0xD, 0xC, 0xF, 0xE},
-    {0xE, 0xD, 0x8, 0x9, 0x6, 0x7, 0x2, 0x3, 0x0, 0x1, 0xC, 0xD, 0xF, 0xE, 0x5, 0x4},
-    {0x3, 0x2, 0x1, 0x0, 0xF, 0xE, 0xD, 0xC, 0x9, 0x8, 0x7, 0x6, 0x5, 0x4, 0xB, 0xA},
-    {0x6, 0x5, 0x4, 0x3, 0x2, 0x1, 0x0, 0xF, 0xE, 0xD, 0xC, 0xB, 0xA, 0x9, 0x8, 0x7},
-    {0x8, 0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF, 0x1, 0x0, 0x3, 0x2, 0x5, 0x4, 0x7, 0x6},
-    {0xD, 0xC, 0xB, 0xA, 0x9, 0x8, 0x7, 0x6, 0x5, 0x4, 0x3, 0x2, 0x1, 0x0, 0xF, 0xE}
-};
-
-// Таблица перестановки исходного IP
-const int DESCipher::IP_TABLE[64] = {
-    57, 49, 41, 33, 25, 17, 9, 1,
-    58, 50, 42, 34, 26, 18, 10, 2,
-    59, 51, 43, 35, 27, 19, 11, 3,
-    60, 52, 44, 36, 28, 20, 12, 4,
-    61, 53, 45, 37, 29, 21, 13, 5,
-    62, 54, 46, 38, 30, 22, 14, 6,
-    63, 55, 47, 39, 31, 23, 15, 7
-};
-
-// Таблица перестановки обратного IP
-const int DESCipher::IP_INV_TABLE[64] = {
-    40, 8, 48, 16, 56, 24, 39, 7,
-    47, 15, 55, 23, 31, 63, 38, 6,
-    46, 14, 54, 22, 30, 62, 37, 5,
-    45, 13, 53, 21, 29, 61, 36, 4,
-    44, 12, 52, 20, 28, 60, 35, 3,
-    43, 11, 51, 19, 27, 59, 34, 2,
-    42, 10, 50, 18, 26, 58, 33, 1,
-    41, 9, 49, 17, 57, 25, 32, 0
-};
-
-// Функция для преобразования строки в ключ
-vector<unsigned char> generateKeyFromWord(const string& word) {
-    vector<unsigned char> key(8); // 64-битный ключ
-
-    // Копируем первые 8 символов строки в вектор байтов
-    for (size_t i = 0; i < 8 && i < word.size(); i++) {
-        key[i] = static_cast<unsigned char>(word[i]);
-    }
-
-    return key;
+// Удаление паддинга
+string ubratPadding(const string &soobshenie) {
+    char razmerPaddinga = soobshenie.back();
+    return soobshenie.substr(0, soobshenie.size() - razmerPaddinga);
 }
 
 int main() {
-    string keyGet = "f29ab866ffc37ef8455c8718924002de5dadb51dcc46c9d2dc6d17ab8be3afca"; // Ключ в виде слова
-    vector<unsigned char> key(keyGet.begin(), keyGet.end());
-    //vector<unsigned char> key = generateKeyFromWord(wordKey);
-    string messageGet = "Hello World";
-    vector<unsigned char> message(messageGet.begin(), messageGet.end());
+    const size_t razmerBloka = 8;
 
+    string otkrytyTekst;
+    cout << "Введите текст: ";
+    getline(cin, otkrytyTekst);
 
-    DESCipher cipher;
-    vector<unsigned char> encryptedMessage = cipher.encrypt(message, key);
-    vector<unsigned char> decryptedMessage = cipher.decrypt(encryptedMessage, key);
+    // cout << otkrytyTekst << endl;
 
-    cout << "Original message: ";
-    for (auto b : message) cout << (char)b;
+    // Добавляем паддинг
+    string sPaddingom = dobavitPadding(otkrytyTekst, razmerBloka);
+
+    // cout << sPaddingom << endl;
+
+    // Разделяем текст на блоки
+    vector<string> bloki = razdelitNaBloki(sPaddingom, razmerBloka);
+
+    // Шифрование
+    vector<string> shifrovannyeBloki;
+    for (const string &blok : bloki) {
+        shifrovannyeBloki.push_back(shifrovatBlok(blok, kluch));
+    }
+
+    // Объединение зашифрованных блоков
+    string shifrovannyTekst;
+    for (const string &blok : shifrovannyeBloki) {
+        shifrovannyTekst += blok;
+    }
+
+    // Вывод зашифрованного текста
+    cout << "Зашифрованный текст: ";
+    for (char c : shifrovannyTekst) {
+        printf("%02X ", static_cast<unsigned char>(c));
+    }
     cout << endl;
 
-    cout << "Encrypted message: ";
-    for (auto b : encryptedMessage) cout << hex << setw(2) << setfill('0') << (int)b << " ";
-    cout << endl;
+    // cout << shifrovannyTekst << endl;
 
-    cout << "Decrypted message: ";
-    for (auto b : decryptedMessage) cout << (char)b;
-    cout << endl;
+    // Дешифрование
+    vector<string> deshifrovannyeBloki;
+    for (const string &blok : shifrovannyeBloki) {
+        deshifrovannyeBloki.push_back(deshifrovatBlok(blok, kluch));
+    }
+
+    // Объединение расшифрованных блоков
+    string deshifrovannyTekst;
+    for (const string &blok : deshifrovannyeBloki) {
+        deshifrovannyTekst += blok;
+    }
+
+    // Удаление паддинга
+    deshifrovannyTekst = ubratPadding(deshifrovannyTekst);
+
+    // Вывод расшифрованного текста
+    cout << "Расшифрованный текст: " << deshifrovannyTekst << endl;
 
     return 0;
 }
