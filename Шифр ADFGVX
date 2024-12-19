@@ -1,0 +1,148 @@
+/*
+Программа демонстрирует действие Шифра ADFGVX.
+Для тестирования необходимо ввести текст на латинице без пробелов(тестовый пример - HelloWorld)
+Далее проходит Шифрование и Дешифрование текста.
+Запуск файла происходит путём копирования текста и запуск в любой удобной среде разработки(язык с++), также возможна проверка в оналйн компиляторе, но при этом варианте могут быть неточности из-за некорректого чтения и отображения текста через консоль.
+*/
+
+#include <iostream>
+#include <unordered_map>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <numeric>
+
+using namespace std;
+
+class Shifrator {
+private:
+    unordered_map<string, char> sozdatKvadrat() {
+        string simvoly = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        unordered_map<string, char> kvadrat;
+        string kody = "ADFGVX";
+        int indeks = 0;
+
+        for (char stroka : kody) {
+            for (char stolbec : kody) {
+                kvadrat[string(1, stroka) + stolbec] = simvoly[indeks++];
+            }
+        }
+        return kvadrat;
+    }
+
+    string primenitKlyuchShifrovanie(const string& tekst, const string& klyuch) {
+        int dopolnenie = 0;
+        string izmenennyyTekst = tekst;
+
+        if (tekst.length() % klyuch.length() != 0) {
+            dopolnenie = klyuch.length() - (tekst.length() % klyuch.length());
+            izmenennyyTekst.append(dopolnenie, 'X');
+        }
+
+        // Определяем порядок колонок для шифрования
+        vector<int> indeksyKlyucha(klyuch.length());
+        iota(indeksyKlyucha.begin(), indeksyKlyucha.end(), 0);
+        sort(indeksyKlyucha.begin(), indeksyKlyucha.end(), [&klyuch](int a, int b) {
+            return klyuch[a] < klyuch[b];
+        });
+
+        // Разделяем текст на колонки в зависимости от порядка ключа
+        vector<string> kolonki(klyuch.length());
+        for (size_t i = 0; i < izmenennyyTekst.length(); ++i) {
+            kolonki[i % klyuch.length()].push_back(izmenennyyTekst[i]);
+        }
+
+        string rezultat;
+        for (int indeks : indeksyKlyucha) {
+            rezultat += kolonki[indeks];
+        }
+
+        // Добавляем дополняющий символ к результату
+        return rezultat + to_string(dopolnenie);
+    }
+
+    string primenitKlyuchRasshifrovanie(const string& tekst, const string& klyuch) {
+        int dopolnenie = tekst.back() - '0';
+        string izmenennyyTekst = tekst.substr(0, tekst.size() - 1);
+        size_t vysotaKolonki = izmenennyyTekst.size() / klyuch.length();
+
+        // Определяем порядок колонок для расшифрования
+        vector<int> indeksyKlyucha(klyuch.length());
+        iota(indeksyKlyucha.begin(), indeksyKlyucha.end(), 0);
+        sort(indeksyKlyucha.begin(), indeksyKlyucha.end(), [&klyuch](int a, int b) {
+            return klyuch[a] < klyuch[b];
+        });
+
+        // Восстанавливаем текст из колонок
+        vector<string> kolonki(klyuch.length());
+        size_t start = 0;
+        for (int indeks : indeksyKlyucha) {
+            kolonki[indeks] = izmenennyyTekst.substr(start, vysotaKolonki);
+            start += vysotaKolonki;
+        }
+
+        string rezultat;
+        for (size_t i = 0; i < vysotaKolonki; ++i) {
+            for (int j = 0; j < klyuch.length(); ++j) {
+                rezultat += kolonki[j][i];
+            }
+        }
+
+        // Убираем дополняющие символы из результата
+        if (dopolnenie > 0) {
+            rezultat.erase(rezultat.end() - dopolnenie, rezultat.end());
+        }
+        return rezultat;
+    }
+
+public:
+    string zashifrovat(const string& vkhod, const string& klyuch) {
+        unordered_map<string, char> kvadrat = sozdatKvadrat();
+        string promeshutochnyy;
+
+        for (char bukva : vkhod) {
+            bukva = toupper(bukva);
+            for (const auto& para : kvadrat) {
+                if (para.second == bukva) {
+                    promeshutochnyy += para.first;
+                    break;
+                }
+            }
+        }
+
+        return primenitKlyuchShifrovanie(promeshutochnyy, klyuch);
+    }
+
+    string rasshifrovat(const string& zashifrovano, const string& klyuch) {
+        unordered_map<string, char> kvadrat = sozdatKvadrat();
+        string rasshifrovano = primenitKlyuchRasshifrovanie(zashifrovano, klyuch);
+
+        string rezultat;
+        for (size_t i = 0; i < rasshifrovano.size(); i += 2) {
+            string para = rasshifrovano.substr(i, 2);
+            rezultat += kvadrat[para];
+        }
+
+        return rezultat;
+    }
+};
+
+int main() {
+    Shifrator shifr;
+    string soobshchenie;
+    string klyuch = "KLYUCH";
+    
+    cout << "Введите текст: ";
+    getline(cin, soobshchenie);
+    //cout << soobshchenie;
+
+    // Зашифровываем сообщение
+    string zashifrovano = shifr.zashifrovat(soobshchenie, klyuch);
+    cout << "Зашифрованное сообщение: " << zashifrovano << endl;
+
+    // Расшифровываем сообщение
+    string rasshifrovano = shifr.rasshifrovat(zashifrovano, klyuch);
+    cout << "Расшифрованное сообщение: " << rasshifrovano << endl;
+
+    return 0;
+}
