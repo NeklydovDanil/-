@@ -1,0 +1,128 @@
+/*
+Программа демонстрирует действие Шифра Цезаря.
+Для тестирования необходимо ввести текст на латинице (тестовый пример - Hello Planet)
+Далее проходит Шифрование и Дешифрование, а затем на основе зашифрованного текста происходит попытка взлома текста.
+*/
+
+#include <iostream>
+#include <unordered_map>
+#include <string>
+#include <cmath>
+#include <cctype>
+#include <algorithm>
+#include <limits>
+
+using namespace std;
+
+class SdvigShifra {
+private:
+    // Частоты букв английского алфавита (статичная таблица для сравнения)
+    static const unordered_map<char, double> chastotyBukv;
+
+public:
+    // Метод для шифрования текста с заданным сдвигом
+    string shifrovat(const string& tekst, int sdvig) {
+        string rezultat;
+        for (char simvol : tekst) {
+            if (isupper(simvol)) {
+                // Обработка заглавных букв
+                rezultat += static_cast<char>((simvol + sdvig - 'A') % 26 + 'A');
+            } else if (islower(simvol)) {
+                // Обработка строчных букв
+                rezultat += static_cast<char>((simvol + sdvig - 'a') % 26 + 'a');
+            } else {
+                // Небуквенные символы остаются неизменными
+                rezultat += simvol;
+            }
+        }
+        return rezultat;
+    }
+
+    // Метод для расшифровки текста
+    string rashifrovat(const string& tekst, int sdvig) {
+        return shifrovat(tekst, -sdvig);
+    }
+
+    // Метод для взлома шифра путем анализа частот символов
+    string vzlom(const string& zashifrovanTekst) {
+        int luchshiySdvig = 0;
+        double minimalRaznitsa = numeric_limits<double>::max(); // Минимальная разница частот
+        string luchshiyTekst;
+
+        for (int tekushiySdvig = 1; tekushiySdvig < 26; ++tekushiySdvig) {
+            string tekushiyRashifrovanTekst = rashifrovat(zashifrovanTekst, tekushiySdvig);
+            double tekushiyScore = otsenitTekst(tekushiyRashifrovanTekst);
+            if (tekushiyScore < minimalRaznitsa) {
+                minimalRaznitsa = tekushiyScore;
+                luchshiySdvig = tekushiySdvig;
+                luchshiyTekst = tekushiyRashifrovanTekst;
+            }
+        }
+        //cout << to_string(luchshiySdvig);
+        return "Лучший сдвиг: " + to_string(luchshiySdvig) + "\nВзломанный текст: " + luchshiyTekst;
+    }
+
+private:
+    // Функция для оценки текста по частотам символов
+    double otsenitTekst(const string& tekst) {
+        unordered_map<char, int> chastotaSimvolov;
+        int vsegoBukv = 0;
+
+        for (char simvol : tekst) {
+            // Перевод символов в верхний регистр для подсчета
+            char bolshayaBukva = toupper(simvol);
+            if (isalpha(bolshayaBukva)) {
+                chastotaSimvolov[bolshayaBukva]++;
+                vsegoBukv++;
+            }
+        }
+
+        if (vsegoBukv == 0) {
+            //cout << "нет букв";
+            return numeric_limits<double>::max();
+        }
+
+        double raznitsa = 0.0; // Суммарная разница частот
+        for (const auto& bukva : chastotyBukv) {
+            char simvol = bukva.first;
+            double ozhidaemayaChastota = bukva.second;
+            double tekushayaChastota = (chastotaSimvolov[simvol] / static_cast<double>(vsegoBukv)) * 100.0;
+            raznitsa += abs(ozhidaemayaChastota - tekushayaChastota);
+        }
+        return raznitsa;
+    }
+};
+
+// Инициализация таблицы частот букв
+const unordered_map<char, double> SdvigShifra::chastotyBukv = {
+    {'E', 12.70}, {'T', 9.06}, {'A', 8.17}, {'O', 7.51}, {'I', 6.97},
+    {'N', 6.75}, {'S', 6.33}, {'H', 6.09}, {'R', 5.99}, {'D', 4.25},
+    {'L', 4.03}, {'C', 2.78}, {'U', 2.76}, {'M', 2.41}, {'W', 2.36},
+    {'F', 2.23}, {'G', 2.02}, {'Y', 1.97}, {'P', 1.93}, {'B', 1.49},
+    {'V', 0.98}, {'K', 0.77}, {'X', 0.15}, {'J', 0.15}, {'Q', 0.10},
+    {'Z', 0.07}
+};
+
+int main() {
+    SdvigShifra shifr;
+    string tekst;
+    cout << "Введите текст: ";
+    getline(cin, tekst);
+    //cout << test;
+    int sdvig = 4;
+
+    // Шифруем текст
+    string zashifrovanniy = shifr.shifrovat(tekst, sdvig);
+    cout << "Зашифрованный текст: " << zashifrovanniy << endl;
+
+    // Расшифровываем текст
+    string rashifrovanniy = shifr.rashifrovat(zashifrovanniy, sdvig);
+    cout << "Расшифрованный текст: " << rashifrovanniy << endl;
+
+    cout << endl;
+    // Взлом шифра
+    string analiz = shifr.vzlom(zashifrovanniy);
+    cout << analiz << endl;
+
+    return 0;
+}
