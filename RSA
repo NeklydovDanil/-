@@ -1,0 +1,162 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <ctime>
+#include <sstream>
+#include <algorithm>
+#include <cstdlib>
+#include <cassert>
+
+using namespace std;
+
+class RSACipher {
+private:
+    size_t bitLength = 1024; // Длина ключа
+    unsigned long e = 65537; // Часто используется значение 65537 для e
+    unsigned long publicKey;
+    unsigned long privateKey;
+    unsigned long modulus;
+
+    // Генерация ключей
+    void generateKeys() {
+        srand(static_cast<unsigned int>(time(0))); // Инициализация генератора случайных чисел
+        unsigned long p = generateLargePrime(bitLength / 2);
+        unsigned long q = generateLargePrime(bitLength / 2);
+
+        modulus = p * q; // n = p * q
+        unsigned long phi = (p - 1) * (q - 1); // phi(n) = (p - 1) * (q - 1)
+
+        publicKey = e; // e
+        privateKey = modInverse(e, phi); // d = e^-1 mod phi(n)
+    }
+
+    // Генерация большого простого числа
+    unsigned long generateLargePrime(size_t numBits) {
+        unsigned long prime = 0;
+        bool isPrime = false;
+
+        while (!isPrime) {
+            prime = rand() % ((1UL << (numBits - 1)) - 1) + (1UL << (numBits - 1)); // Генерация случайного числа с нужным количеством бит
+            isPrime = isPrimeNumber(prime);
+        }
+
+        return prime;
+    }
+
+    // Проверка на простое число
+    bool isPrimeNumber(unsigned long n) {
+        if (n <= 1) return false;
+        if (n <= 3) return true;
+        if (n % 2 == 0 || n % 3 == 0) return false;
+
+        for (unsigned long i = 5; i * i <= n; i += 6) {
+            if (n % i == 0 || n % (i + 2) == 0) return false;
+        }
+
+        return true;
+    }
+
+    // Вспомогательная функция для вычисления обратного элемента (modInverse)
+    unsigned long modInverse(unsigned long a, unsigned long m) {
+        a = a % m;
+        for (unsigned long x = 1; x < m; ++x) {
+            if ((a * x) % m == 1) return x;
+        }
+        return 1;
+    }
+
+public:
+    RSACipher() {
+        generateKeys();
+    }
+
+    // Шифрование
+    string encrypt(const string& message) {
+        vector<unsigned char> messageBytes(message.begin(), message.end());
+        unsigned long messageInt = bytesToInt(messageBytes);
+        unsigned long encrypted = modExp(messageInt, publicKey, modulus); // ciphertext = plaintext^e mod n
+        stringstream ss;
+        ss << hex << encrypted;
+        return ss.str();
+    }
+
+    // Дешифрование
+    string decrypt(const string& encryptedMessage) {
+        unsigned long encryptedInt;
+        stringstream ss;
+        ss << hex << encryptedMessage;
+        ss >> encryptedInt;
+
+        unsigned long decrypted = modExp(encryptedInt, privateKey, modulus); // plaintext = ciphertext^d mod n
+        string decryptedMessage = intToBytes(decrypted);
+        return decryptedMessage;
+    }
+
+    // Получение публичного ключа
+    unsigned long getPublicKey() {
+        return publicKey;
+    }
+
+    // Получение приватного ключа
+    unsigned long getPrivateKey() {
+        return privateKey;
+    }
+
+    // Получение модуля
+    unsigned long getModulus() {
+        return modulus;
+    }
+
+private:
+    // Перевод в int
+    unsigned long bytesToInt(const vector<unsigned char>& bytes) {
+        unsigned long value = 0;
+        for (size_t i = 0; i < bytes.size(); ++i) {
+            value = (value << 8) | bytes[i];
+        }
+        return value;
+    }
+
+    // Перевод в массив байт
+    string intToBytes(unsigned long value) {
+        string result;
+        while (value) {
+            result.push_back(static_cast<char>(value & 0xFF));
+            value >>= 8;
+        }
+        reverse(result.begin(), result.end());
+        return result;
+    }
+
+    // Возведение в степень по модулю
+    unsigned long modExp(unsigned long base, unsigned long exp, unsigned long mod) {
+        unsigned long result = 1;
+        base = base % mod;
+        while (exp > 0) {
+            if (exp % 2 == 1) result = (result * base) % mod;
+            exp = exp >> 1;
+            base = (base * base) % mod;
+        }
+        return result;
+    }
+};
+
+int main() {
+    RSACipher rsa;
+
+    string publicKey = to_string(rsa.getPublicKey());
+    string privateKey = to_string(rsa.getPrivateKey());
+    string modulus = to_string(rsa.getModulus());
+
+    string message;
+    cout << "Введите сообщение: ";
+    getline(cin, message);
+
+    string encryptedMessage = rsa.encrypt(message);
+    cout << "Зашифрованное сообщение: " << encryptedMessage << endl;
+
+    string decryptedMessage = rsa.decrypt(encryptedMessage);
+    cout << "Расшифрованное сообщение: " << decryptedMessage << endl;
+
+    return 0;
+}
