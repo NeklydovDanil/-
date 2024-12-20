@@ -1,10 +1,10 @@
 /*
+*исправлено - расшифровка и взлом происходят корректным образом, добавлена возможность выбирать свдиг. 
 Программа демонстрирует действие Шифра Цезаря.
-Для тестирования необходимо ввести текст на латинице (тестовый пример - Hello Planet)
+Для тестирования необходимо ввести текст на латинице
 Далее проходит Шифрование и Дешифрование, а затем на основе зашифрованного текста происходит попытка взлома текста.
 Запуск файла происходит путём копирования текста и запуск в любой удобной среде разработки(язык с++), также возможна проверка в оналйн компиляторе, но при этом варианте могут быть неточности из-за некорректого чтения и отображения текста через консоль.
 */
-
 #include <iostream>
 #include <unordered_map>
 #include <string>
@@ -24,6 +24,7 @@ public:
     // Метод для шифрования текста с заданным сдвигом
     string shifrovat(const string& tekst, int sdvig) {
         string rezultat;
+        sdvig = normalizeShift(sdvig);
         for (char simvol : tekst) {
             if (isupper(simvol)) {
                 // Обработка заглавных букв
@@ -64,6 +65,10 @@ public:
     }
 
 private:
+    int normalizeShift(int shift) {
+        return (shift % 26 + 26) % 26; // Сдвиг в диапазоне [0, 25]
+    }
+
     // Функция для оценки текста по частотам символов
     double otsenitTekst(const string& tekst) {
         unordered_map<char, int> chastotaSimvolov;
@@ -109,8 +114,10 @@ int main() {
     string tekst;
     cout << "Введите текст: ";
     getline(cin, tekst);
-    //cout << test;
-    int sdvig = 4;
+    //cout << tekst;
+    int sdvig ;
+    cout << "Введите сдвиг: ";
+    cin >> sdvig;
 
     // Шифруем текст
     string zashifrovanniy = shifr.shifrovat(tekst, sdvig);
