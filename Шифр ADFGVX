@@ -1,10 +1,9 @@
 /*
 Программа демонстрирует действие Шифра ADFGVX.
-Для тестирования необходимо ввести текст на латинице без пробелов(тестовый пример - HelloWorld)
+Для тестирования необходимо ввести текст на латинице и ключ(тестовый пример - Hello World и key123)
 Далее проходит Шифрование и Дешифрование текста.
 Запуск файла происходит путём копирования текста и запуск в любой удобной среде разработки(язык с++), также возможна проверка в оналйн компиляторе, но при этом варианте могут быть неточности из-за некорректого чтения и отображения текста через консоль.
 */
-
 #include <iostream>
 #include <unordered_map>
 #include <vector>
@@ -57,7 +56,6 @@ private:
             rezultat += kolonki[indeks];
         }
 
-        // Добавляем дополняющий символ к результату
         return rezultat + to_string(dopolnenie);
     }
 
@@ -99,9 +97,15 @@ public:
     string zashifrovat(const string& vkhod, const string& klyuch) {
         unordered_map<string, char> kvadrat = sozdatKvadrat();
         string promeshutochnyy;
+        vector<size_t> polozhenieProbelov;
 
-        for (char bukva : vkhod) {
-            bukva = toupper(bukva);
+        // Сохраняем позиции пробелов
+        for (size_t i = 0; i < vkhod.size(); ++i) {
+            if (vkhod[i] == ' ') {
+                polozhenieProbelov.push_back(i);
+                continue;
+            }
+            char bukva = toupper(vkhod[i]);
             for (const auto& para : kvadrat) {
                 if (para.second == bukva) {
                     promeshutochnyy += para.first;
@@ -110,17 +114,38 @@ public:
             }
         }
 
-        return primenitKlyuchShifrovanie(promeshutochnyy, klyuch);
+        string zashifrovano = primenitKlyuchShifrovanie(promeshutochnyy, klyuch);
+
+        // Добавляем позиции пробелов в начало
+        string polozhenieProbelovStr;
+        for (size_t pos : polozhenieProbelov) {
+            polozhenieProbelovStr += to_string(pos) + ",";
+        }
+        return polozhenieProbelovStr + "|" + zashifrovano;
     }
 
     string rasshifrovat(const string& zashifrovano, const string& klyuch) {
         unordered_map<string, char> kvadrat = sozdatKvadrat();
-        string rasshifrovano = primenitKlyuchRasshifrovanie(zashifrovano, klyuch);
+        size_t razdelitel = zashifrovano.find('|');
+        string polozhenieProbelov = zashifrovano.substr(0, razdelitel);
+        string shifrovanText = zashifrovano.substr(razdelitel + 1);
+
+        string rasshifrovano = primenitKlyuchRasshifrovanie(shifrovanText, klyuch);
 
         string rezultat;
         for (size_t i = 0; i < rasshifrovano.size(); i += 2) {
             string para = rasshifrovano.substr(i, 2);
             rezultat += kvadrat[para];
+        }
+
+        // Восстанавливаем пробелы
+        size_t poz = 0;
+        while ((poz = polozhenieProbelov.find(',')) != string::npos) {
+            int indeks = stoi(polozhenieProbelov.substr(0, poz));
+            polozhenieProbelov.erase(0, poz + 1);
+            if (indeks <= rezultat.size()) {
+                rezultat.insert(rezultat.begin() + indeks, ' ');
+            }
         }
 
         return rezultat;
@@ -130,11 +155,13 @@ public:
 int main() {
     Shifrator shifr;
     string soobshchenie;
-    string klyuch = "KLYUCH";
-    
+    string klyuch;
+
     cout << "Введите текст: ";
     getline(cin, soobshchenie);
-    //cout << soobshchenie;
+
+    cout << "Введите ключ: ";
+    getline(cin, klyuch);
 
     // Зашифровываем сообщение
     string zashifrovano = shifr.zashifrovat(soobshchenie, klyuch);
